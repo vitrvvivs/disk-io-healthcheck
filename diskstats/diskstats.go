@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -56,13 +57,13 @@ const (
 	Minor = 1
 	Name = 2
 
-	Read = 3
-	ReadMerged = 4
+	ReadIOps = 3
+	ReadIOpsMerged = 4
 	ReadSectors = 5
 	ReadTime = 6
 
-	Write = 7
-	WriteMerged = 8
+	WriteIOps = 7
+	WriteIOpsMerged = 8
 	WriteSectors = 9
 	WriteTime = 10
 
@@ -81,7 +82,9 @@ type Diskstats struct {
 	interval time.Duration
 
 	stats map[string]*Statline
+	statsLock sync.RWMutex
 	delta map[string]*Statline
+	deltaLock sync.RWMutex
 	fd *os.File
 }
 
@@ -137,9 +140,13 @@ func (d *Diskstats) Update() (error) {
 			for i, v := range old.Data {
 				delta.Data[i] = sl.Data[i] - v
 			}
+			d.deltaLock.Lock()
 			d.delta[name] = delta
+			d.deltaLock.Unlock()
 		}
+		d.statsLock.Lock()
 		d.stats[name] = sl
+		d.statsLock.Unlock()
 	}
 	return nil
 }
@@ -148,27 +155,37 @@ func (sl *Statline) Rate() (readBs uint64, writeBs uint64) {
 	return sl.Data[ReadSectors] * 512, sl.Data[WriteSectors] * 512
 }
 
-func (d *Diskstats) Get(name string) (*Statline) {
-	name, _ = filepath.EvalSymlinks(name)
-	name = strings.Trim(name, "/dev/")
-	fmt.Printf("Getting %s", name)
-	return d.stats[name]
-}
+func SanitizeDiskName(name string) string {
+	// /proc/diskstats names are 'sdc', 'nvme0n1p5'
+	// translate to that from '/dev/disk/by-label/storage'
 
-func (d *Diskstats) GetDelta(name string) (*Statline) {
 	new_name, err := filepath.EvalSymlinks(name)
 	if err == nil {
 		name = new_name
-		fmt.Printf("Getting Delta for %s\n", name)
-		name = strings.TrimPrefix(name, "/dev/")
 	}
-	fmt.Printf("Getting Delta for %s\n", name)
-	return d.delta[name]
+	name = strings.TrimPrefix(name, "/dev/")
+	return name
+}
+
+func (d *Diskstats) Get(name string) (*Statline) {
+	name = SanitizeDiskName(name)
+	d.statsLock.RLock()
+	v := d.stats[name]
+	d.statsLock.RUnlock()
+	return v
+}
+
+func (d *Diskstats) GetDelta(name string) (*Statline) {
+	name = SanitizeDiskName(name)
+	d.deltaLock.RLock()
+	v := d.delta[name]
+	d.deltaLock.RUnlock()
+	return v
 }
 
 func (d *Diskstats) Print() {
 	for name, sl := range d.stats {
-		fmt.Printf("%s %d %d\n", name, sl.Data[Read], sl.Data[Write])
+		fmt.Printf("%s %d %d\n", name, sl.Data[ReadIOps], sl.Data[WriteIOps])
 	}
 }
 
