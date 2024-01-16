@@ -1,0 +1,21 @@
+Usage of ./disk-io-healthcheck:
+  -addr string
+    	Listen Address (default "0.0.0.0")
+  -disk.average uint
+    	Number of datapoints to average out (default 5)
+  -disk.device string
+    	Path of device to watch (default "/dev/sda")
+  -disk.interval uint
+    	Seconds between reading /proc/diskstats (default 1)
+  -disk.read uint
+    	Max read KB/s to consider healthy
+  -disk.total uint
+    	Max total KB/s to consider healthy
+  -disk.write uint
+    	Max write KB/s to consider healthy
+  -http.interval uint
+    	Seconds between checking other url (default 1)
+  -http.url string
+    	Include results from other healthchecks
+  -port uint
+    	Listen Port (default 8010)
