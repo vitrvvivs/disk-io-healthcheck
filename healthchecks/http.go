@@ -20,8 +20,8 @@ type HTTPHealthcheck struct {
 }
 
 func (h *HTTPHealthcheck) Init() {
-	flag.StringVar(&h.URL, "http.url", "", "Include results from other healthchecks")
-	flag.Uint64Var(&h.Interval, "http.interval", 1, "Seconds between checking other url")
+	flag.StringVar(&h.URL, "next.url", "", "Proxy another http healthcheck")
+	flag.Uint64Var(&h.Interval, "next.interval", 1, "Seconds between checking other url")
 }
 
 func (h *HTTPHealthcheck) Start(ctx context.Context) {
